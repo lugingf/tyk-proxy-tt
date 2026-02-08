@@ -1,0 +1,29 @@
+{
+  "application": {
+    "target_host": "http://backend-whoami:80",
+    "port": 8080,
+    "token": {
+      "jwt_secret": "II+NZDtODCTp0eAGX0/3HNdaExOf+M1uesFHdN+IFcTD774aaeJrJIOMS4aYhi+l",
+      "algorithm": "HS256"
+    }
+  },
+  "server_timeouts": {
+    "readHeaderTimeout": "5s",
+    "readTimeout": "30s",
+    "writeTimeout": "30s",
+    "idleTimeout": "60s"
+  },
+  "redis": {
+    "addr": "tyk-redis:6379"
+  },
+  "log": {
+    "level": "Debug",
+    "format": "console",
+    "colored": true
+  },
+  "monitoring": {
+    "ip": "0.0.0.0",
+    "scheme": "http",
+    "port": 9090
+  }
+}

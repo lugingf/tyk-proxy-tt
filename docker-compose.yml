@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  tyk-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tyk-proxy
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - ./config.json:/app/config.json
+    environment:
+      - REDIS_ADDR=tyk-redis:6379
+      - PROXY_TARGET_URL=http://mock-backend:8000 
+      - SERVER_PORT=8080 
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - gateway_net
+
+  redis:
+    image: redis:7-alpine 
+    container_name: tyk-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - gateway_net
+
+  whoami:
+    image: traefik/whoami:v1.10.4
+    container_name: backend-whoami
+    networks:
+      - gateway_net
+    expose:
+      - "80"
+
+networks:
+  gateway_net:
+    driver: bridge
