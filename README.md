@@ -10,7 +10,7 @@
 ```
 Usage of ./tyk_proxy:
   -config string
-    	path to config file (default "config.json")
+    	path to config file
   -env
     	override json config values by ENV vars
   -version
@@ -18,11 +18,11 @@ Usage of ./tyk_proxy:
 ```
 
 ## Config
-I prefer to use json config file. But you can use ENV vars. To use then you need to specify flag -env on service start.
-To use them in Docker you need to update Dockerfile and add ENV vars to docker-compose.yml.
+I prefer to use json config file. But you can use ENV vars. To use then you need to specify flag `-env` on service start.
+To use them in Docker you need to update Dockerfile and add ENV vars to docker-compose.yml. Or use .env.example file.
 
 ## Metrics
-Service exposes prometheus metrics on :9090/metrics endpoint. Prometheus metrics format is used.
+Service exposes prometheus metrics on `:9090/metrics` endpoint. Prometheus metrics format is used.
 
 ## Token generation
 I have a script that generates tokens for testing purposes. It stores them to redis directly under the same key as the api_key.

@@ -193,10 +193,6 @@ func (m *AuthorizationMiddlewareService) isAllowedPath(path string, patterns []s
 	return false
 }
 
-//
-// Context: store claims for downstream
-//
-
 type ctxKeyClaims struct{}
 
 func WithClaims(ctx context.Context, c *Claims) context.Context {

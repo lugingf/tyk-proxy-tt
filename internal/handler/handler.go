@@ -17,7 +17,7 @@ import (
 	mp "tyk-proxy/internal/metrics"
 )
 
-const maxBodyBytes int64 = 10 << 20 // 10 MiB (лучше вынести в cfg)
+const maxBodyBytes int64 = 10 << 20 // 10 MiB // TODO to config
 
 type Proxy struct {
 	target string
@@ -56,7 +56,7 @@ func GetRouter(h *Proxy, metrics *mp.Metrics) chi.Router {
 
 	r.Get("/health", h.Health())
 	r.Get("/ready", h.Ready())
-	
+
 	r.Handle("/metrics", promhttp.Handler())
 
 	r.Route("/api/v1", func(r chi.Router) {

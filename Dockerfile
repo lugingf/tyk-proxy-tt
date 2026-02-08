@@ -10,5 +10,5 @@ WORKDIR /app
 COPY --from=builder /app/tyk_proxy /app/tyk_proxy
 EXPOSE 8080
 
-#CMD ["/app/tyk_proxy", "-config", "/app/config.json", "-env"]
+#CMD ["/app/tyk_proxy"]
 CMD ["/app/tyk_proxy", "-config", "/app/config.json"]
