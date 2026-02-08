@@ -12,4 +12,7 @@ gen:
 	./token_gen -secret "II+NZDtODCTp0eAGX0/3HNdaExOf+M1uesFHdN+IFcTD774aaeJrJIOMS4aYhi+l"
 
 up:
+	docker-compose up -d
+
+up-b:
 	docker-compose up -d --build --force-recreate

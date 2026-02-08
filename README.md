@@ -6,6 +6,34 @@
  - service whoami is used for testing as target backend
  - the target backend has to be specified in config
 
+## Makefile commands
+ - `make build` - build service
+ - `make gen` - generate token and put it to redis
+ - `make test` - run tests
+ - `make up` - run service, redis and whoami in docker
+
+## Service
+Works on 8080 port. If token is valid then service proxies request to target backend. If not is return error status code.
+Logs have levels of severity. Debug, Info, Warn, Error, Fatal.
+Logs have output format. json or console.
+Logs have colored output. Which could be disabled.
+
+Response example:
+```shell
+Hostname: 23e7dd4157d6
+IP: 127.0.0.1
+IP: ::1
+IP: 192.168.148.3
+RemoteAddr: 192.168.148.4:35342
+GET /api/v1/test HTTP/1.1
+Host: backend-whoami:80
+User-Agent: curl/8.7.1
+Accept: */*
+Accept-Encoding: gzip
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoianJUZDhMVHJZZnI5UVJYYThuS3Y0USIsInJhdGVfbGltaXQiOjEwLCJleHBpcmVzX2F0IjoiMjAyNi0wMi0wOVQxNzozODo0NVoiLCJhbGxvd2VkX3JvdXRlcyI6WyIvYXBpL3YxL3Rlc3QiLCIvYXBpL3YxL3Rlc3QyIl0sImV4cCI6MTc3MDY1ODcyNSwiaWF0IjoxNzcwNTcyMzI1fQ.oG5V_YFctAwCA5lwolfItdf9znh9c_dVF6pKFgHEZ1U
+X-Forwarded-For: 192.168.148.1
+```
+
 ## Usage of service
 ```
 Usage of ./tyk_proxy:
@@ -20,6 +48,64 @@ Usage of ./tyk_proxy:
 ## Config
 I prefer to use json config file. But you can use ENV vars. To use then you need to specify flag `-env` on service start.
 To use them in Docker you need to update Dockerfile and add ENV vars to docker-compose.yml. Or use .env.example file.
+
+Default configs provided in config.json and .env.example
+
+```json
+{
+  "application": {
+    "target_host": "http://backend-whoami:80",
+    "port": 8080,
+    "token": {
+      "jwt_secret": "II+NZDtODCTp0eAGX0/3HNdaExOf+M1uesFHdN+IFcTD774aaeJrJIOMS4aYhi+l",
+      "algorithm": "HS256"
+    }
+  },
+  "server_timeouts": {
+    "readHeaderTimeout": "5s",
+    "readTimeout": "30s",
+    "writeTimeout": "30s",
+    "idleTimeout": "60s"
+  },
+  "redis": {
+    "addr": "tyk-redis:6379"
+  },
+  "log": {
+    "level": "Debug",
+    "format": "console",
+    "colored": true
+  },
+  "monitoring": {
+    "ip": "0.0.0.0",
+    "scheme": "http",
+    "port": 9090
+  }
+}
+
+```
+
+```dotenv
+export TYK_PROX_LOG__LEVEL=Debug
+export TYK_PROX_LOG__FORMAT=console
+export TYK_PROX_LOG__COLORED=true
+
+export TYK_PROX_APPLICATION__TARGET_HOST=http://backend-whoami:80
+export TYK_PROX_APPLICATION__PORT=8080
+export TYK_PROX_APPLICATION__TOKEN__JWT_SECRET=II+NZDtODCTp0eAGX0/3HNdaExOf+M1uesFHdN+IFcTD774aaeJrJIOMS4aYhi+l
+export TYK_PROX_APPLICATION__TOKEN__ALGORITHM=HS256
+
+export TYK_PROX_REDIS__ADDR=localhost:6379
+
+export TYK_PROX_SERVER_TIMEOUTS__READHEADERTIMEOUT=5s
+export TYK_PROX_SERVER_TIMEOUTS__READTIMEOUT=30s
+export TYK_PROX_SERVER_TIMEOUTS__WRITETIMEOUT=30s
+export TYK_PROX_SERVER_TIMEOUTS__IDLETIMEOUT=60s
+
+export TYK_PROX_MONITORING__IP=0.0.0.0
+export TYK_PROX_MONITORING__SCHEME=http
+export TYK_PROX_MONITORING__PORT=9090
+
+```
 
 ## Metrics
 Service exposes prometheus metrics on `:9090/metrics` endpoint. Prometheus metrics format is used.
