@@ -34,7 +34,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoianJUZ
 X-Forwarded-For: 192.168.148.1
 ```
 
+## Healthcheck
+Service has healthcheck endpoint on `:8080/health` Ok if service is up.
+Service has readiness endpoint on `:8080/ready` Ok if service is up and connected to redis.
+## Metrics
+Service exposes prometheus metrics on `:9090/metrics` endpoint. Prometheus metrics format is used.
+
 ## Usage of service
+After build you can run service with command (ot just use Make up-b to start all services):
 ```
 Usage of ./tyk_proxy:
   -config string
@@ -106,9 +113,6 @@ export TYK_PROX_MONITORING__SCHEME=http
 export TYK_PROX_MONITORING__PORT=9090
 
 ```
-
-## Metrics
-Service exposes prometheus metrics on `:9090/metrics` endpoint. Prometheus metrics format is used.
 
 ## Token generation
 I have a script that generates tokens for testing purposes. It stores them to redis directly under the same key as the api_key.
