@@ -3,13 +3,14 @@ package handler
 import (
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
 	"tyk-proxy/internal/auth"
@@ -44,43 +45,37 @@ func setRequestIDHeader(next http.Handler) http.Handler {
 func GetRouter(h *Proxy, metrics *mp.Metrics) chi.Router {
 	r := chi.NewRouter()
 
+	r.Use(middleware.RealIP)
+	r.Use(middleware.CleanPath)
 	r.Use(middleware.RequestID)
 	r.Use(setRequestIDHeader)
-
 	r.Use(middleware.RequestSize(maxBodyBytes))
-
 	r.Use(middleware.RequestLogger(&config.ChiZerologFormatter{}))
 	r.Use(middleware.Recoverer)
-
 	r.Use(metrics.MetricsMiddleware)
 
 	r.Get("/health", h.Health())
 	r.Get("/ready", h.Ready())
 
-	r.Handle("/metrics", promhttp.Handler())
-
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(h.authMw.Handler)
-		r.Handle("/*", h.Handler(h.getTarget()))
+		r.Handle("/*", h.Handler(h.target))
 	})
 
 	return r
 }
 
-func (h *Proxy) getTarget() string {
-	return h.target
-}
-
 func (h *Proxy) Handler(targetURL string) http.HandlerFunc {
 	target, err := url.Parse(targetURL)
 	if err != nil || target.Scheme == "" || target.Host == "" {
-
 		return func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid upstream target", http.StatusInternalServerError)
 		}
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.Transport = newUpstreamTransport()
+	proxy.FlushInterval = 100 * time.Millisecond
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
 		var mbe *http.MaxBytesError
@@ -98,7 +93,29 @@ func (h *Proxy) Handler(targetURL string) http.HandlerFunc {
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		if rid := middleware.GetReqID(r.Context()); rid != "" {
+			r.Header.Set("X-Request-ID", rid)
+		}
 		r.Host = target.Host
 		proxy.ServeHTTP(w, r)
+	}
+}
+
+func newUpstreamTransport() *http.Transport {
+	dialer := &net.Dialer{
+		Timeout:   5 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+
+	return &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
+		MaxIdleConns:          200,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       90 * time.Second,
+		ResponseHeaderTimeout: 30 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: time.Second,
+		ForceAttemptHTTP2:     true,
 	}
 }

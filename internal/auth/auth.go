@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -104,8 +105,14 @@ func (m *AuthorizationMiddlewareService) Handler(next http.Handler) http.Handler
 
 		tok, err := m.store.GetToken(r.Context(), claims.APIKey)
 		if err != nil {
-			log.Debug().Err(err).Str("api_key", claims.APIKey).Msg("token not found in store")
-			m.unauthorized(w, "unknown token: "+err.Error())
+			log.Debug().Err(err).Str("api_key", claims.APIKey).Msg("token store lookup failed")
+
+			if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrExpired) || errors.Is(err, store.ErrInvalid) {
+				m.unauthorized(w, "unknown token")
+				return
+			}
+
+			http.Error(w, "authorization backend unavailable", http.StatusServiceUnavailable)
 			return
 		}
 

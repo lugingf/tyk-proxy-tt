@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 	"time"
 
@@ -62,7 +64,12 @@ const servicePrefix = "TYK_PROX_"
 func ReadConfig(configPath string, envOverrides *bool) (*Config, error) {
 	k := koanf.New(".")
 
-	slog.Info("Starting service. Reading config", "config_path", configPath, "env_overrides", *envOverrides)
+	useEnvOverrides := false
+	if envOverrides != nil {
+		useEnvOverrides = *envOverrides
+	}
+
+	slog.Info("Starting service. Reading config", "config_path", configPath, "env_overrides", useEnvOverrides)
 
 	if configPath == "" {
 		slog.Info("No config path provided, loading from env only")
@@ -70,7 +77,7 @@ func ReadConfig(configPath string, envOverrides *bool) (*Config, error) {
 			return nil, errors.Wrap(err, "fatal error loading config from env")
 		}
 	} else {
-		if *envOverrides {
+		if useEnvOverrides {
 			slog.Info("Override with env variables")
 			// JSON (low prior) -> ENV (high prior)
 			if err := loadFile(k, configPath); err != nil {
@@ -104,11 +111,75 @@ func ReadConfig(configPath string, envOverrides *bool) (*Config, error) {
 	return &cfg, nil
 }
 
+const (
+	defaultReadHeaderTimeout = 5 * time.Second
+	defaultReadTimeout       = 30 * time.Second
+	defaultWriteTimeout      = 30 * time.Second
+	defaultIdleTimeout       = 60 * time.Second
+)
+
+func (c *Config) ValidateAndNormalize() error {
+	if c == nil {
+		return errors.New("config is nil")
+	}
+
+	if c.Application.Port <= 0 || c.Application.Port > 65535 {
+		return fmt.Errorf("application.port must be between 1 and 65535")
+	}
+
+	if c.Application.TargetHost == "" {
+		return errors.New("application.target_host is required")
+	}
+
+	u, err := url.Parse(c.Application.TargetHost)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return fmt.Errorf("application.target_host must be a valid absolute URL")
+	}
+
+	if c.Application.Token.Algorithm == "" {
+		return errors.New("application.token.algorithm is required")
+	}
+
+	alg := strings.ToUpper(c.Application.Token.Algorithm)
+	switch alg {
+	case "HS256", "HS384", "HS512":
+	default:
+		return fmt.Errorf("application.token.algorithm %q is not supported", c.Application.Token.Algorithm)
+	}
+
+	if c.Application.Token.JWTSecret == "" {
+		return errors.New("application.token.jwt_secret is required for HMAC algorithms")
+	}
+
+	if c.Redis.Addr == "" {
+		return errors.New("redis.addr is required")
+	}
+
+	if c.Monitoring.Port < 0 || c.Monitoring.Port > 65535 {
+		return errors.New("monitoring.port must be between 0 and 65535")
+	}
+
+	if c.ServerTimeouts.ReadHeaderTimeout <= 0 {
+		c.ServerTimeouts.ReadHeaderTimeout = defaultReadHeaderTimeout
+	}
+	if c.ServerTimeouts.ReadTimeout <= 0 {
+		c.ServerTimeouts.ReadTimeout = defaultReadTimeout
+	}
+	if c.ServerTimeouts.WriteTimeout <= 0 {
+		c.ServerTimeouts.WriteTimeout = defaultWriteTimeout
+	}
+	if c.ServerTimeouts.IdleTimeout <= 0 {
+		c.ServerTimeouts.IdleTimeout = defaultIdleTimeout
+	}
+
+	return nil
+}
+
 func loadEnv(k *koanf.Koanf) error {
 	return k.Load(env.Provider(servicePrefix, ".", func(s string) string {
 		// has to cut it by itself, but didn't work
 		s = strings.TrimPrefix(s, servicePrefix)
-		
+
 		s = strings.ToLower(s)
 		s = strings.ReplaceAll(s, "__", ".")
 		return s

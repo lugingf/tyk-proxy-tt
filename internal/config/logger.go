@@ -62,7 +62,7 @@ var FormatLevelColored = func(i interface{}) string {
 }
 
 func InitLogger(cfg *Config) {
-	slog.Info("Initializing logger with configuration", "config", cfg)
+	slog.Info("Initializing logger", "level", cfg.Log.Level, "format", cfg.Log.Format, "colored", cfg.Log.Colored)
 
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.TimestampFieldName = "time"
@@ -90,7 +90,7 @@ func InitLogger(cfg *Config) {
 			},
 			FormatLevel: formatter,
 			FormatMessage: func(i interface{}) string {
-				return i.(string)
+				return fmt.Sprint(i)
 			},
 		}
 	}

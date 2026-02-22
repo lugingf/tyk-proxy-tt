@@ -291,14 +291,14 @@ func TestAuthMiddleware_PathNotAllowed_403(t *testing.T) {
 	}
 }
 
-func TestAuthMiddleware_StoreError_401(t *testing.T) {
+func TestAuthMiddleware_StoreNotFound_401(t *testing.T) {
 	now := time.Now().UTC()
 
 	fv := &fakeVerifier{parseFn: func(tokenString string) (*Claims, error) {
 		return newClaims("k1", now.Add(time.Hour), []string{"/api/v1/*"}), nil
 	}}
 	fs := &fakeTokenStore{getFn: func(ctx context.Context, key string) (store.Token, error) {
-		return store.Token{}, errors.New("not found")
+		return store.Token{}, store.ErrNotFound
 	}}
 	fl := &fakeLimiter{allowFn: func(ctx context.Context, key string, limit int) (bool, error) {
 		return true, nil
@@ -317,6 +317,41 @@ func TestAuthMiddleware_StoreError_401(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("status=%d want=%d", rr.Code, http.StatusUnauthorized)
+	}
+	if fs.calls != 1 {
+		t.Fatalf("store calls=%d want=1", fs.calls)
+	}
+	if fl.calls != 0 {
+		t.Fatalf("limiter should not be called")
+	}
+}
+
+func TestAuthMiddleware_StoreBackendError_503(t *testing.T) {
+	now := time.Now().UTC()
+
+	fv := &fakeVerifier{parseFn: func(tokenString string) (*Claims, error) {
+		return newClaims("k1", now.Add(time.Hour), []string{"/api/v1/*"}), nil
+	}}
+	fs := &fakeTokenStore{getFn: func(ctx context.Context, key string) (store.Token, error) {
+		return store.Token{}, errors.New("redis unavailable")
+	}}
+	fl := &fakeLimiter{allowFn: func(ctx context.Context, key string, limit int) (bool, error) {
+		return true, nil
+	}}
+
+	mw := New(fs, fl, fv)
+	mw.WithOptions(&Options{Now: func() time.Time { return now }})
+
+	req := httptest.NewRequest(http.MethodGet, "http://example/api/v1/test", nil)
+	req.Header.Set("Authorization", "Bearer token")
+	rr := httptest.NewRecorder()
+
+	mw.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("next must not be called")
+	})).ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status=%d want=%d", rr.Code, http.StatusServiceUnavailable)
 	}
 	if fs.calls != 1 {
 		t.Fatalf("store calls=%d want=1", fs.calls)
